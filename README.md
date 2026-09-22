@@ -1,4 +1,4 @@
-# 🗄️ Acceso a Datos (AD)
+# 🗄️ Acceso a Datos (AED)
 
 Repositorio dedicado a las prácticas, proyectos y ejercicios prácticos del módulo de **Acceso a Datos** (2º DAM). Aquí se documentan las distintas formas de persistencia e integración de datos en aplicaciones Java, desde el manejo directo de ficheros y bases de datos relacionales/NoSQL hasta frameworks ORM modernos.
 
@@ -9,9 +9,6 @@ Repositorio dedicado a las prácticas, proyectos y ejercicios prácticos del mó
 | Directorio | Práctica / Tema | Descripción |
 | :--- | :--- | :--- |
 | `01-maven-setup/` | **Práctica 1: Proyecto Maven desde cero** | Inicialización del entorno, estructura estándar y configuración de `pom.xml`. |
-| `02-ficheros/` | *Próximamente* | Lectura/escritura de ficheros secuenciales, binarios, XML y JSON. |
-| `03-jdbc/` | *Próximamente* | Conexión a bases de datos relacionales mediante conectores JDBC. |
-| `04-orm-hibernate/` | *Próximamente* | Mapeo objeto-relacional y persistencia con JPA / Hibernate. |
 
 ---
 
