@@ -1,0 +1,63 @@
+# ==========================================
+# Compilación y artefactos Java / Maven
+# ==========================================
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# ==========================================
+# Logs y depuración
+# ==========================================
+*.log
+hs_err_pid*
+replay_pid*
+
+# ==========================================
+# Entornos de desarrollo (IDEs)
+# ==========================================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Visual Studio Code
+.vscode/
+
+# Eclipse
+.project
+.classpath
+.settings/
+.factorypath
+
+# NetBeans
+nbproject/private/
+nbbuild/
+dist/
+
+# ==========================================
+# Python (calcular_nota.py y cachés)
+# ==========================================
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# ==========================================
+# Archivos del Sistema Operativo
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+
+# ==========================================
+# Datos temporales / de trabajo del laboratorio
+# Conservar solo .gitkeep en la carpeta data/work
+# ==========================================
+data/work/*
+!data/work/.gitkeep

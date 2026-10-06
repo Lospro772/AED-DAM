@@ -169,3 +169,24 @@ yasiel@debian-des:~/Escritorio/AED/gestor-tareas$
 ```
 
 * Por otro lado es importante saber que al ejecutar `mvn install` no publica el proyecto para otros personas debido a que cuando ejecutas el comando, maven hace un Aislamiento local, por tanto nadie de fuera de nuestra maquina podra usarlo.
+### Paso 08: Repositorios externos y settings.xml
+* En esta pratica vamos a crear una carpeta `Config` y dentro un archivo de configuraión:
+```
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
+  <profiles>
+    <profile>
+      <id>repositorio-publico</id>
+      <repositories>
+        <repository>
+          <id>central-explicito</id>
+          <url>https://repo.maven.apache.org/maven2</url>
+          <releases><enabled>true</enabled></releases>
+          <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+      </repositories>
+    </profile>
+  </profiles>
+</settings>
+```
