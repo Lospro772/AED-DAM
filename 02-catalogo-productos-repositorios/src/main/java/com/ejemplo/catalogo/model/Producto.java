@@ -1,4 +1,3 @@
 package com.ejemplo.catalogo.model;
 
-public class Producto {
-}
+public record Producto(Long id, String nombre, double precio) implements Identificable<Long> {}
