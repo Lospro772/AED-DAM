@@ -4,72 +4,72 @@
 
 -- EJERCICIO 01
 -- Mostrar los cinco primeros productos por identificador.
-SELECT ...;
+SELECT id, nombre, precio FROM Productos ORDER BY id LIMIT 5;
 -- SELECT id, nombre, precio FROM Productos ORDER BY id LIMIT 5;
 
 -- EJERCICIO 02
 -- Ver los cinco vehículos más recientes.
-SELECT ...;
+SELECT matricula, marca, modelo, anio FROM Vehiculos ORDER BY anio DESC LIMIT 5;
 
 -- EJERCICIO 03
 -- Filtrar productos cuyo precio sea mayor de 100.
-SELECT ...;
+SELECT id, nombre, precio FROM Productos WHERE precio > 100 ORDER BY precio DESC LIMIT 8;
 
 -- EJERCICIO 04
 -- Localizar vehículos de la marca Toyota.
-SELECT ...;
+SELECT matricula, marca, modelo, anio FROM Vehiculos WHERE marca = 'Toyota' ORDER BY anio DESC LIMIT 8;
 
 -- EJERCICIO 05
 -- Buscar productos cuyo nombre contenga Pro.
-SELECT ...;
+SELECT id, nombre, precio FROM Productos WHERE nombre LIKE '%PRO' LIMIT 8;
 
 -- EJERCICIO 06
 -- Mostrar productos con precio comprendido entre 20 y 50.
-SELECT ...;
+SELECT id, nombre, precio FROM Productos WHERE precio BETWEEN 20 AND 50 ORDER BY precio LIMIT 8;
 
 -- EJERCICIO 07
 -- Listar marcas diferentes sin repetir.
-SELECT ...;
+SELECT DISTINCT marca FROM Vehiculos ORDER BY marca LIMIT 10;
 
 -- EJERCICIO 08
 -- Seleccionar vehículos de dos marcas concretas.
-SELECT ...;
+SELECT matricula, marca, modelo, anio FROM Vehiculos WHERE marca IN ('Ford', 'Toyota') ORDER BY marca, anio DESC LIMIT 8;
 
 -- EJERCICIO 09
 -- Contar cuántos productos existen.
-SELECT ...;
+SELECT COUNT(*) FROM Productos;
 
 -- EJERCICIO 10
 -- Contar cuántos vehículos están registrados.
-SELECT ...;
+SELECT COUNT(*) FROM Vehiculos;
 
 -- EJERCICIO 11
 -- Obtener precio mínimo, máximo y medio.
-SELECT ...;
+SELECT MIN(precio), MAX(precio), ROUND(AVG(precio), 2) FROM Productos;
 
 -- EJERCICIO 12
 -- Contar las marcas diferentes.
-SELECT ...;
+SELECT COUNT(DISTINCT marca) FROM Vehiculos;
 
 -- EJERCICIO 13
 -- Calcular la suma de todos los precios del catálogo.
-SELECT ...;
+SELECT ROUND(SUM(precio), 2) FROM Productos;
 
 -- EJERCICIO 14
 -- Contar productos con precio de al menos 50.
-SELECT ...;
+SELECT COUNT(*) FROM Productos WHERE precio >= 50;
 
 -- EJERCICIO 15
 -- Contar vehículos de cada marca.
-SELECT ...;
+SELECT marca, COUNT(*) FROM Vehiculos GROUP BY marca;
 
 -- EJERCICIO 16
 -- Encontrar los años de fabricación con más vehículos.
-SELECT ...;
+SELECT anio, COUNT(*) AS total FROM Vehiculos GROUP BY anio ORDER BY total DESC, anio DESC LIMIT 10;
 
 -- EJERCICIO 17
 -- Calcular año más antiguo y reciente por marca.
-SELECT ...;
+SELECT marca, MIN(anio), MAX(anio) FROM Vehiculos GROUP BY marca ;
 
 -- EJERCICIO 18
 -- Contar productos por tramos de precio.
