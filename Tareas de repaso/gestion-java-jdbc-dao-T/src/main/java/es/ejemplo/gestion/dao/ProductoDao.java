@@ -1,13 +1,18 @@
 package es.ejemplo.gestion.dao;
 
 import es.ejemplo.gestion.model.Producto;
+
 import java.sql.*;
 import java.util.*;
 
 public class ProductoDao extends AbstractDao<Producto> {
-    public ProductoDao(String url) { super(url); }
+    public ProductoDao(String url) {
+        super(url);
+    }
 
-    /** EJEMPLO COMPLETO: transformar ResultSet a Producto sin propagar excepciones. */
+    /**
+     * EJEMPLO COMPLETO: transformar ResultSet a Producto sin propagar excepciones.
+     */
     @Override
     protected Optional<Producto> mapRsToClass(ResultSet rs) {
         try {
@@ -18,11 +23,13 @@ public class ProductoDao extends AbstractDao<Producto> {
         }
     }
 
-    /** EJEMPLO COMPLETO: listar productos mediante PreparedStatement. */
+    /**
+     * EJEMPLO COMPLETO: listar productos mediante PreparedStatement.
+     */
     public List<Producto> listar() {
         String sql = "SELECT id,nombre,precio FROM Productos ORDER BY id";
-        try (Connection con = obtenerConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection connection = obtenerConexion();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             return consultar(ps);
         } catch (SQLException | RuntimeException e) {
             registrar("listar productos", e);
@@ -41,8 +48,8 @@ public class ProductoDao extends AbstractDao<Producto> {
     public Optional<Producto> buscarPorId(Integer id) {
         if (id == null || id <= 0) return Optional.empty();
         String sql = "SELECT id, nombre, precio FROM Productos WHERE id = ?";
-        try (Connection con = obtenerConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection connection = obtenerConexion();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, id);
             return consultarUno(ps);
         } catch (SQLException | RuntimeException e) {
@@ -67,8 +74,9 @@ public class ProductoDao extends AbstractDao<Producto> {
     public boolean insertar(Producto p) {
         if (!esValido(p)) return false;
         String sql = "INSERT INTO Productos (id, nombre, precio) VALUES (?, ?, ?)";
-        try (Connection con = obtenerConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection connection = obtenerConexion();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+
             ps.setInt(1, p.getId());
             ps.setString(2, p.getNombre());
             ps.setDouble(3, p.getPrecio());
@@ -80,10 +88,9 @@ public class ProductoDao extends AbstractDao<Producto> {
     }
 
     public boolean actualizar(Producto p) {
-        if (!esValido(p)) return false;
         String sql = "UPDATE Productos SET nombre = ?, precio = ? WHERE id = ?";
-        try (Connection con = obtenerConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection connection = obtenerConexion();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, p.getNombre());
             ps.setDouble(2, p.getPrecio());
             ps.setInt(3, p.getId());
@@ -97,8 +104,8 @@ public class ProductoDao extends AbstractDao<Producto> {
     public List<Producto> buscarPorNombre(String texto) {
         if (texto == null) return List.of();
         String sql = "SELECT id, nombre, precio FROM Productos WHERE LOWER(nombre) LIKE ? ORDER BY nombre, id";
-        try (Connection con = obtenerConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection connection = obtenerConexion();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, "%" + texto.toLowerCase(Locale.ROOT) + "%");
             return consultar(ps);
         } catch (SQLException | RuntimeException e) {
@@ -110,8 +117,8 @@ public class ProductoDao extends AbstractDao<Producto> {
     public List<Producto> buscarPorPrecio(double minimo, double maximo) {
         if (minimo > maximo) return List.of();
         String sql = "SELECT id, nombre, precio FROM Productos WHERE precio BETWEEN ? AND ? ORDER BY id";
-        try (Connection con = obtenerConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection connection = obtenerConexion();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setDouble(1, minimo);
             ps.setDouble(2, maximo);
             return consultar(ps);
@@ -123,8 +130,8 @@ public class ProductoDao extends AbstractDao<Producto> {
 
     public int contar() {
         String sql = "SELECT COUNT(*) FROM Productos";
-        try (Connection con = obtenerConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection connection = obtenerConexion();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             return consultarEntero(ps);
         } catch (SQLException | RuntimeException e) {
             registrar("contar productos", e);
@@ -133,9 +140,9 @@ public class ProductoDao extends AbstractDao<Producto> {
     }
 
     public double precioMedio() {
-        String sql = "SELECT COALESCE(AVG(precio), 0) FROM Productos";
-        try (Connection con = obtenerConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        String sql = "SELECT AVG(precio) FROM Productos";
+        try (Connection connection = obtenerConexion();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
             return consultarDecimal(ps);
         } catch (SQLException | RuntimeException e) {
             registrar("precioMedio producto", e);

@@ -1,17 +1,24 @@
 package es.ejemplo.gestion.dao;
 
 import es.ejemplo.gestion.config.ConexionBD;
+
 import java.sql.*;
 import java.util.*;
 import java.util.logging.*;
 
-/** Operaciones JDBC comunes. El DAO llamador cierra Connection y PreparedStatement. */
+/**
+ * Operaciones JDBC comunes. El DAO llamador cierra Connection y PreparedStatement.
+ */
 public abstract class AbstractDao<T> extends ConexionBD {
     private static final Logger LOG = Logger.getLogger(AbstractDao.class.getName());
 
-    protected AbstractDao(String url) { super(url); }
+    protected AbstractDao(String url) {
+        super(url);
+    }
 
-    /** Cada DAO captura errores de lectura y devuelve Optional.empty() si falla. */
+    /**
+     * Cada DAO captura errores de lectura y devuelve Optional.empty() si falla.
+     */
     protected abstract Optional<T> mapRsToClass(ResultSet rs);
 
     protected List<T> consultar(PreparedStatement ps) {
@@ -42,20 +49,32 @@ public abstract class AbstractDao<T> extends ConexionBD {
 
     protected boolean ejecutar(PreparedStatement ps) {
         if (ps == null) return false;
-        try { return ps.executeUpdate() > 0; }
-        catch (SQLException | RuntimeException e) { registrar("ejecutar", e); return false; }
+        try {
+            return ps.executeUpdate() > 0;
+        } catch (SQLException | RuntimeException e) {
+            registrar("ejecutar", e);
+            return false;
+        }
     }
 
     protected int consultarEntero(PreparedStatement ps) {
         if (ps == null) return 0;
-        try (ResultSet rs = ps.executeQuery()) { return rs.next() ? rs.getInt(1) : 0; }
-        catch (SQLException | RuntimeException e) { registrar("consultarEntero", e); return 0; }
+        try (ResultSet rs = ps.executeQuery()) {
+            return rs.next() ? rs.getInt(1) : 0;
+        } catch (SQLException | RuntimeException e) {
+            registrar("consultarEntero", e);
+            return 0;
+        }
     }
 
     protected double consultarDecimal(PreparedStatement ps) {
         if (ps == null) return 0;
-        try (ResultSet rs = ps.executeQuery()) { return rs.next() ? rs.getDouble(1) : 0; }
-        catch (SQLException | RuntimeException e) { registrar("consultarDecimal", e); return 0; }
+        try (ResultSet rs = ps.executeQuery()) {
+            return rs.next() ? rs.getDouble(1) : 0;
+        } catch (SQLException | RuntimeException e) {
+            registrar("consultarDecimal", e);
+            return 0;
+        }
     }
 
     protected Map<String, Integer> consultarAgrupado(PreparedStatement ps) {

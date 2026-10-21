@@ -1,20 +1,23 @@
 package es.ejemplo.gestion.dao;
 
 import es.ejemplo.gestion.model.Vehiculo;
+
 import java.sql.*;
 import java.util.*;
 
 public class VehiculoDao extends AbstractDao<Vehiculo> {
-    public VehiculoDao(String url) { super(url); }
+    public VehiculoDao(String url) {
+        super(url);
+    }
 
     @Override
     protected Optional<Vehiculo> mapRsToClass(ResultSet rs) {
         try {
             return Optional.of(new Vehiculo(
-                rs.getString("matricula"),
-                rs.getString("marca"),
-                rs.getString("modelo"),
-                rs.getInt("anio")
+                    rs.getString("matricula"),
+                    rs.getString("marca"),
+                    rs.getString("modelo"),
+                    rs.getInt("anio")
             ));
         } catch (SQLException | RuntimeException e) {
             registrar("mapRsToClass vehiculo", e);
