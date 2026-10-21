@@ -12,40 +12,57 @@ import java.util.List;
 import java.util.Optional;
 
 
-public class ProductoDao extends ConexionBD {
+public class ProductoDao extends AbstractDao {
     //private  ConexionBD conexionBD;
 
     public ProductoDao(String url) {
         super(url);
     }
 
+    @Override
+    Producto mapToClass(ResultSet rs) {
+        try {
+            Producto producto = new Producto(rs.getInt(1), rs.getNString(2), rs.getDouble(3));
+        } catch (Exception e) {
+            throw new AplicationException(e.getMessage(), e.getCause());
+        }
+        return null;
+    }
+
 
     public List<Producto> listar() {
         List<Producto> lista = new ArrayList<>();
-        String query = "SELECT * FROM Producto";
+        String query = "SELECT id,nombre,precio FROM Productos";
         try (Connection connection = this.obtenerConexion()) {
+
             PreparedStatement ps = connection.prepareStatement(query);
+
             ResultSet rs = ps.executeQuery();
+
+            return consultar(ps);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new AplicationException(e.getMessage(), e);
         }
-        //conexion
-        //sql
-        //preparateStatement
-        //ResultSet rs
-        //rs.next
-        
-        /**
-         * while(rs.next()) {
-         * producto = new Producto(rs.get(id) rs.get
-         * 
-         * }
-         */
-        return lista;
+
+        //return this.consultar(query);
     }
 
     public Optional<Producto> buscarPorId(int id) {
-        return null;
+        String query = "SELECT id,nombre,precio FROM Productos WHERE id = ?";
+        List<Producto> productos = null;
+        try (Connection connection = this.obtenerConexion()) {
+
+            PreparedStatement ps = connection.prepareStatement(query);
+            ps.setInt(1, id);
+
+            productos = consultar(ps);
+        } catch (Exception e) {
+            throw new AplicationException(e.getMessage(), e);
+        }
+        if (productos != null && productos.size() > 0) {
+            return productos.stream().findFirst();
+        }
+        return Optional.empty();
     }
 
     public boolean insertar(Producto producto) {
@@ -69,10 +86,12 @@ public class ProductoDao extends ConexionBD {
     }
 
     public int contar() {
-       return 0;
+
+        return 0;
     }
 
     public double precioMedio() {
+
         return 0;
     }
     
