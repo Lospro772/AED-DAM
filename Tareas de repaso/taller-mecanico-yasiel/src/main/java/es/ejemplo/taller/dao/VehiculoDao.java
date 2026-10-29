@@ -5,20 +5,10 @@ import es.ejemplo.taller.modelo.Vehiculo;
 import java.sql.*;
 import java.util.*;
 
-/** La clave es la matrícula, que es texto: por eso ID = String. */
-public class VehiculoDao extends AbstractDao<Vehiculo, String> {
+/** La clave es la matrícula, que es texto: se usa setString y no hay id generado. */
+public class VehiculoDao extends AbstractDao<Vehiculo> {
     public VehiculoDao(String url) {
         super(url);
-    }
-
-    @Override
-    protected String getTabla() {
-        return "vehiculos";
-    }
-
-    @Override
-    protected String getColumnaId() {
-        return "matricula";
     }
 
     @Override
@@ -30,7 +20,7 @@ public class VehiculoDao extends AbstractDao<Vehiculo, String> {
                     rs.getString("modelo"),
                     rs.getInt("anio"),
                     rs.getInt("id_cliente")));
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
             registrar("mapRsToClass vehiculo", e);
             return Optional.empty();
         }
@@ -38,12 +28,36 @@ public class VehiculoDao extends AbstractDao<Vehiculo, String> {
 
     /** Matrícula, marca y modelo obligatorios; año y dueño no pueden faltar. */
     private boolean esValido(Vehiculo vehiculo) {
-        return vehiculo != null
-                && textoValido(vehiculo.getMatricula())
-                && textoValido(vehiculo.getMarca())
-                && textoValido(vehiculo.getModelo())
-                && vehiculo.getAnio() != null
-                && vehiculo.getIdCliente() != null;
+        if (vehiculo == null) return false;
+        if (vehiculo.getMatricula() == null || vehiculo.getMatricula().isBlank()) return false;
+        if (vehiculo.getMarca() == null || vehiculo.getMarca().isBlank()) return false;
+        if (vehiculo.getModelo() == null || vehiculo.getModelo().isBlank()) return false;
+        if (vehiculo.getAnio() == null || vehiculo.getIdCliente() == null) return false;
+        return true;
+    }
+
+    public List<Vehiculo> listar() {
+        String sql = "SELECT * FROM vehiculos ORDER BY matricula";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            return consultar(ps);
+        } catch (SQLException | RuntimeException e) {
+            registrar("listar vehiculos", e);
+            return List.of();
+        }
+    }
+
+    public Optional<Vehiculo> buscarPorId(String matricula) {
+        if (matricula == null || matricula.isBlank()) return Optional.empty();
+        String sql = "SELECT * FROM vehiculos WHERE matricula = ?";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, matricula);
+            return consultarUno(ps);
+        } catch (SQLException | RuntimeException e) {
+            registrar("buscarPorId vehiculo", e);
+            return Optional.empty();
+        }
     }
 
     /** La matrícula la trae el vehículo, no la genera la base de datos: devuelve 1 si se guarda y 0 si no. */
@@ -57,8 +71,8 @@ public class VehiculoDao extends AbstractDao<Vehiculo, String> {
             ps.setString(3, vehiculo.getModelo());
             ps.setInt(4, vehiculo.getAnio());
             ps.setInt(5, vehiculo.getIdCliente());
-            return ejecutar(ps);
-        } catch (SQLException e) {
+            return ps.executeUpdate();
+        } catch (SQLException | RuntimeException e) {
             registrar("insertar vehiculo", e);
             return 0;
         }
@@ -75,18 +89,50 @@ public class VehiculoDao extends AbstractDao<Vehiculo, String> {
             ps.setInt(3, vehiculo.getAnio());
             ps.setInt(4, vehiculo.getIdCliente());
             ps.setString(5, vehiculo.getMatricula());
-            return ejecutar(ps);
-        } catch (SQLException e) {
+            return ps.executeUpdate();
+        } catch (SQLException | RuntimeException e) {
             registrar("actualizar vehiculo", e);
             return 0;
         }
     }
 
+    /** Borra un vehículo. Devuelve 1 si lo borró y 0 si no existía o tiene reparaciones. */
+    public int eliminar(String matricula) {
+        if (matricula == null || matricula.isBlank()) return 0;
+        String sql = "DELETE FROM vehiculos WHERE matricula = ?";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, matricula);
+            return ps.executeUpdate();
+        } catch (SQLException | RuntimeException e) {
+            registrar("eliminar vehiculo", e);
+            return 0;
+        }
+    }
+
     public List<Vehiculo> buscarPorCliente(Integer idCliente) {
-        return buscarPor("id_cliente", idCliente);
+        if (idCliente == null) return List.of();
+        String sql = "SELECT * FROM vehiculos WHERE id_cliente = ? ORDER BY matricula";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, idCliente);
+            return consultar(ps);
+        } catch (SQLException | RuntimeException e) {
+            registrar("buscarPorCliente vehiculo", e);
+            return List.of();
+        }
     }
 
     public List<Vehiculo> listarPorMarca(String marca) {
-        return buscarPor("marca", marca);
+        if (marca == null || marca.isBlank()) return List.of();
+        String sql = "SELECT * FROM vehiculos WHERE marca = ? ORDER BY matricula";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, marca);
+            return consultar(ps);
+        } catch (SQLException | RuntimeException e) {
+            registrar("listarPorMarca vehiculo", e);
+            return List.of();
+        }
     }
 }

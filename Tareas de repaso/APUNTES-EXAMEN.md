@@ -52,7 +52,8 @@ public static Connection abrir(String url) throws SQLException {
 }
 ```
 
-Si piden comprobar las tablas: `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('clientes', ...)` tiene que dar el número de tablas.
+- Si piden comprobar las tablas: `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('clientes', ...)` tiene que dar el número de tablas.
+- En el taller, `ConexionBD` además guarda la url y tiene `obtenerConexion()`, que hace `return abrir(url);`. Los DAO del taller la heredan.
 
 ## 5. Estilo CLÍNICA: cada método lo hace todo
 
@@ -96,7 +97,10 @@ public Optional<Cliente> buscarPorId(Integer id) {
 
 ```java
 public int insertar(Cliente cliente) {
-    Objects.requireNonNull(cliente, "Cliente null");
+    // Sin cliente → NullPointerException
+    if (cliente == null) {
+        throw new NullPointerException("Cliente null");
+    }
     // Sin columna id: la pone la base de datos
     String sql = "INSERT INTO clientes (nombre, email, telefono) "
             + "VALUES (?, ?, ?)";
@@ -134,101 +138,117 @@ public int insertar(Cliente cliente) {
   - termina con `return ps.executeUpdate();`;
   - si no tiene id → `IllegalArgumentException`.
 - **eliminar**: `DELETE FROM clientes WHERE id = ?`, luego `ps.setInt(1, id);` y `return ps.executeUpdate();`.
+  - si el id es `null` → `throw new NullPointerException("...")` (lo piden los tests).
 - **coste**: `SELECT COALESCE(SUM(cantidad * precio_unitario), 0) AS total FROM ... WHERE id_consulta = ?` y luego `rs.getBigDecimal("total")`.
 
-## 6. Estilo TALLER: la clase abstracta
+**Truco (lo hace tu compañero):** para no escribir el `new Cliente(...)` en cada método, sácalo a un método privado y llámalo desde todos:
+
+```java
+private Cliente mapCliente(ResultSet rs) throws SQLException {
+    return new Cliente(rs.getInt("id"), rs.getString("nombre"),
+            rs.getString("email"), rs.getString("telefono"));
+}
+// En buscarPorId: return Optional.of(mapCliente(rs));
+// En listar:      clientes.add(mapCliente(rs));
+```
+
+## 6. Estilo TALLER: la clase abstracta (como el profe)
 
 ### La idea
 
-Es como una carta de plantilla: "Estimado ____, su ____ está listo". El texto común se escribe una vez y cada carta solo rellena los huecos.
+En todos los DAO se repite el mismo trozo: **recorrer las filas del `rs` y convertir cada una en un objeto**. Ese trozo se escribe UNA vez en el padre, `AbstractDao`.
 
-- **Plantilla** = `AbstractDao`: el código que es igual en todos los DAO.
-- **Huecos** = 3 métodos `abstract` que escribe cada hijo:
-  - `getTabla()` → `"clientes"`
-  - `getColumnaId()` → `"id_cliente"`
-  - `mapRsToClass(rs)` → el `new Cliente(...)`
-- **Hijos** = `ClienteDao`, `VehiculoDao`... Escriben los huecos, `insertar` y `actualizar`.
+Lo único que cambia de una tabla a otra es **qué objeto se crea** (`new Cliente(...)`, `new Vehiculo(...)`). Eso es el **hueco**: el método `abstract` `mapRsToClass(rs)`, que escribe cada hijo.
 
-`<T, ID>` también son huecos, pero de tipos.
-- `ClienteDao extends AbstractDao<Cliente, Integer>` → T es `Cliente` e ID es `Integer`.
-- En `VehiculoDao` el ID es `String` (la matrícula).
+- **El padre (`AbstractDao`)** tiene:
+  - `consultar(ps)`: ejecuta el SELECT y devuelve **todas** las filas en una `List`;
+  - `consultarUno(ps)`: ejecuta el SELECT y devuelve **una** fila en un `Optional`;
+  - `registrar(...)`: apunta el error con el Logger.
+- **Cada hijo (`ClienteDao`...)** escribe:
+  - el hueco `mapRsToClass(rs)`;
+  - TODOS sus métodos (`listar`, `buscarPorId`, `insertar`, `actualizar`, `eliminar` y filtros), con la misma receta de 6 pasos.
+- **`<T>`** es el hueco del tipo: `ClienteDao extends AbstractDao<Cliente>` → T es `Cliente`.
 
-Por eso el molde usa `ps.setObject(1, id)`, que vale para los dos.
+### Clínica vs Taller
 
-### El molde (lo importante)
+| | Clínica | Taller |
+|---|---|---|
+| Abrir | `ConexionBD.abrir(url)` | `obtenerConexion()` (heredado) |
+| Leer filas | `while`/`if` con `rs` en cada método | `return consultar(ps);` o `return consultarUno(ps);` |
+| `new Cliente(...)` | en cada método | una vez, en `mapRsToClass` |
+| `catch` | `catch (SQLException e)` | `catch (SQLException \| RuntimeException e)` |
+| Si falla | `throw new DaoException(...)` | `registrar(...)` y `0` / `List.of()` / `Optional.empty()` |
+
+`SQLException | RuntimeException` significa "recoge cualquiera de los dos". Así, si llega un `null` y salta un NullPointerException, también devuelve 0.
+
+### El padre
 
 ```java
-public abstract class AbstractDao<T, ID> extends ConexionBD {
+public abstract class AbstractDao<T> extends ConexionBD {
+    private static final Logger LOG =
+            Logger.getLogger(AbstractDao.class.getName());
+
     protected AbstractDao(String url) {
         super(url);   // ConexionBD guarda la url
     }
 
-    // Los 3 huecos
-    protected abstract String getTabla();
-    protected abstract String getColumnaId();
+    // EL HUECO: cada hijo convierte una fila en su objeto
     protected abstract Optional<T> mapRsToClass(ResultSet rs);
 
-    // Vale para todas las tablas gracias a los huecos
-    public List<T> listar() {
-        String sql = "SELECT * FROM " + getTabla()
-                + " ORDER BY " + getColumnaId();
-        try (Connection con = obtenerConexion();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            return consultar(ps);
-        } catch (SQLException e) {
-            registrar("listar", e);
-            return List.of();
-        }
-    }
-
-    // Recorre las filas y las convierte con el hueco
+    // Muchas filas → lista
     protected List<T> consultar(PreparedStatement ps) {
+        if (ps == null) return List.of();
         try (ResultSet rs = ps.executeQuery()) {
             List<T> resultado = new ArrayList<>();
             while (rs.next()) {
-                Optional<T> objeto = mapRsToClass(rs);
-                if (objeto.isEmpty()) {
-                    return List.of();
-                }
-                resultado.add(objeto.get());
+                // El hijo crea el objeto de esta fila
+                Optional<T> entidad = mapRsToClass(rs);
+                if (entidad.isEmpty()) return List.of();
+                resultado.add(entidad.get());
             }
             return resultado;
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
             registrar("consultar", e);
             return List.of();
         }
     }
+
+    // Una fila → caja
+    protected Optional<T> consultarUno(PreparedStatement ps) {
+        if (ps == null) return Optional.empty();
+        try (ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return mapRsToClass(rs);
+            }
+            return Optional.empty();
+        } catch (SQLException | RuntimeException e) {
+            registrar("consultarUno", e);
+            return Optional.empty();
+        }
+    }
+
+    // Apunta el error
+    protected void registrar(String operacion, Exception e) {
+        LOG.log(Level.WARNING, "Fallo JDBC: " + operacion, e);
+    }
 }
 ```
 
-Los demás métodos del molde siguen la misma idea:
-- `buscarPorId(ID id)`: `WHERE columnaId = ?`, luego `ps.setObject(1, id)` y `consultarUno(ps)`.
-- `eliminar(ID id)`: `DELETE ... WHERE columnaId = ?` y `ejecutar(ps)`.
-- `buscarPor(columna, valor)`: `WHERE columna = ?` y `consultar(ps)`. Sirve para todos los filtros.
-- `consultarUno(ps)`: como `consultar`, pero con `if` y devolviendo un `Optional`.
-- `ejecutar(ps)`: `return ps.executeUpdate();` (0 si falla).
-- `insertarConId(ps)`: `executeUpdate()` y luego `getGeneratedKeys()` para sacar el id nuevo.
-- `textoValido(texto)`: `texto != null && !texto.isBlank()`.
-- `registrar(operacion, e)`: apunta el error con el Logger.
+En el proyecto del profe el padre tiene además dos métodos con el mismo estilo:
+- `ejecutar(ps)`: `return ps.executeUpdate() > 0;`. Da `true` si cambió alguna fila y se usa cuando `insertar`/`eliminar` devuelven `boolean`.
+- `consultarEntero(ps)`: `return rs.next() ? rs.getInt(1) : 0;`. Sirve para `COUNT(*)`.
+
+En el taller los tests piden `int`, por eso ahí se hace `return ps.executeUpdate();`.
 
 ### Un hijo
 
 ```java
-public class ClienteDao extends AbstractDao<Cliente, Integer> {
+public class ClienteDao extends AbstractDao<Cliente> {
     public ClienteDao(String url) {
         super(url);
     }
 
-    @Override
-    protected String getTabla() {
-        return "clientes";
-    }
-
-    @Override
-    protected String getColumnaId() {
-        return "id_cliente";
-    }
-
+    // EL HUECO: una fila → un Cliente
     @Override
     protected Optional<Cliente> mapRsToClass(ResultSet rs) {
         try {
@@ -237,19 +257,29 @@ public class ClienteDao extends AbstractDao<Cliente, Integer> {
                     rs.getString("nombre"),
                     rs.getString("email"),
                     rs.getString("telefono")));
-        } catch (SQLException e) {
-            registrar("mapRsToClass", e);
+        } catch (SQLException | RuntimeException e) {
+            registrar("mapRsToClass cliente", e);
             return Optional.empty();
         }
     }
 
-    // listar, buscarPorId y eliminar NO se escriben: los da el molde
-
-    public int insertar(Cliente cliente) {
-        // esValido: no es null y nombre y email no están en blanco
-        if (!esValido(cliente)) {
-            return 0;
+    // LEER: abro, relleno y el padre recorre las filas
+    public Optional<Cliente> buscarPorId(Integer id) {
+        if (id == null) return Optional.empty();
+        String sql = "SELECT * FROM clientes WHERE id_cliente = ?";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return consultarUno(ps);
+        } catch (SQLException | RuntimeException e) {
+            registrar("buscarPorId cliente", e);
+            return Optional.empty();
         }
+    }
+
+    // GUARDAR: igual que en la clínica, pero el catch devuelve 0
+    public int insertar(Cliente cliente) {
+        if (!esValido(cliente)) return 0;
         String sql = "INSERT INTO clientes (nombre, email, telefono) "
                 + "VALUES (?, ?, ?)";
         try (Connection con = obtenerConexion();
@@ -258,27 +288,41 @@ public class ClienteDao extends AbstractDao<Cliente, Integer> {
             ps.setString(1, cliente.getNombre());
             ps.setString(2, cliente.getEmail());
             ps.setString(3, cliente.getTelefono());
-            return insertarConId(ps);   // el molde ejecuta
-        } catch (SQLException e) {
-            registrar("insertar", e);
+            ps.executeUpdate();
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+                return 0;
+            }
+        } catch (SQLException | RuntimeException e) {
+            registrar("insertar cliente", e);
             return 0;
         }
+    }
+
+    // Nombre y email obligatorios
+    private boolean esValido(Cliente cliente) {
+        if (cliente == null) return false;
+        if (cliente.getNombre() == null || cliente.getNombre().isBlank()) return false;
+        if (cliente.getEmail() == null || cliente.getEmail().isBlank()) return false;
+        return true;
     }
 }
 ```
 
-- `actualizar` es igual que `insertar`, pero:
-  - con UPDATE;
-  - sin `RETURN_GENERATED_KEYS`;
-  - termina con `return ejecutar(ps);`.
-- Un filtro es una sola línea: `return buscarPor("marca", marca);`
+Los demás métodos del hijo:
+- **listar**: `SELECT * FROM clientes ORDER BY id_cliente`, sin `?`, `return consultar(ps);` y en el catch `return List.of();`.
+- **filtro**: `WHERE especialidad = ?`, `ps.setString(1, especialidad);` y `return consultar(ps);`. Si el valor es `null` o está en blanco → `List.of()`.
+- **actualizar** y **eliminar**: igual que en la clínica (`return ps.executeUpdate();`), pero el catch hace `registrar(...)` y `return 0;`.
+- **VehiculoDao**: la matrícula es `String`, así que usa `setString`. Como no la inventa la base de datos, `insertar` va sin `RETURN_GENERATED_KEYS` y termina con `return ps.executeUpdate();` (da 1).
 
-### Qué pasa al llamar a `clientes.listar()`
+### Qué pasa al llamar a `clientes.buscarPorId(5)`
 
-1. `listar()` no está en `ClienteDao`, así que Java usa el del molde.
-2. El molde pide los huecos: `getTabla()` → `"clientes"` y `getColumnaId()` → `"id_cliente"`.
-3. Ejecuta `SELECT * FROM clientes ORDER BY id_cliente`.
-4. Por cada fila llama a `mapRsToClass(rs)` del hijo, que crea un `Cliente`. Al final devuelve la lista.
+1. `buscarPorId` está en `ClienteDao`: abre con `obtenerConexion()` (viene de `ConexionBD`) y rellena el `?` con 5.
+2. Llama a `consultarUno(ps)`, que es del padre: ejecuta el SELECT y, si hay fila, llama a `mapRsToClass(rs)`.
+3. El padre no sabe crear un Cliente, así que Java usa el `mapRsToClass` del hijo (`ClienteDao`), que hace el `new Cliente(...)`.
+4. Vuelve la caja con el Cliente.
 
 ## 7. SQL: los 4 patrones
 
@@ -317,6 +361,7 @@ WHERE piezas_reparacion.id_pieza IS NULL;
 - **LEFT JOIN**: todas las de la izquierda; si no tienen pareja, lo de la derecha sale NULL.
 - **COALESCE(a, b)**: si `a` es NULL, usa `b`.
 - `PRAGMA foreign_keys = ON` hay que ponerlo en **cada conexión** (por eso va en `ConexionBD`).
+- En `consultas.sql` se ponen valores de ejemplo (`WHERE marca = 'Seat'`), no `?`. Los `?` son solo para Java.
 
 ## 8. Que no se me olvide
 
@@ -326,14 +371,16 @@ WHERE piezas_reparacion.id_pieza IS NULL;
 - `setInt` con un Integer que es `null` → NullPointerException.
 - BigDecimal: crearlo con `new BigDecimal("10.25")` y compararlo con `compareTo(...) == 0`.
 - Texto obligatorio: `texto != null && !texto.isBlank()`.
+- Lo que ya comprueba un `CHECK` de la base de datos (estado válido, cantidad > 0, tarifa >= 0) no hace falta comprobarlo en Java: da SQLException y el `catch` devuelve 0.
 - Nada de `+ valor +` dentro del SQL: siempre `?` (evita la inyección SQL).
+- Repasa el SQL letra a letra: un `UPDATE PDATE` o un `id_clientes` hace fallar el método entero.
 
 ## 9. Teoría en una línea
 
 - **PreparedStatement**: evita la inyección SQL.
 - **try-with-resources**: cierra `con`, `ps` y `rs` aunque haya error.
 - **Optional**: obliga a tratar el "no encontrado" sin `null`.
-- **Clase abstracta**: lo común se escribe una vez y los hijos rellenan los huecos. No se puede hacer `new`.
+- **Clase abstracta**: lo común (recorrer las filas) se escribe una vez y cada hijo rellena el hueco `mapRsToClass`. No se puede hacer `new`.
 - **Interfaz vs abstracta**: la interfaz solo dice qué métodos hay; la abstracta trae código hecho.
-- **`<T, ID>`**: el mismo molde vale para ids `Integer` y `String`.
+- **`<T>`**: el padre no sabe si maneja Clientes o Vehículos; el hijo se lo dice con `AbstractDao<Cliente>`.
 - **Devolver 0 si falla**: no distingue "error" de "no hay datos"; por eso el error se apunta en el log.

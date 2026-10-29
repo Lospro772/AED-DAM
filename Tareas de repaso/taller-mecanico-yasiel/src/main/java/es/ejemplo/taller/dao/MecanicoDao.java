@@ -2,23 +2,12 @@ package es.ejemplo.taller.dao;
 
 import es.ejemplo.taller.modelo.Mecanico;
 
-import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
 
-public class MecanicoDao extends AbstractDao<Mecanico, Integer> {
+public class MecanicoDao extends AbstractDao<Mecanico> {
     public MecanicoDao(String url) {
         super(url);
-    }
-
-    @Override
-    protected String getTabla() {
-        return "mecanicos";
-    }
-
-    @Override
-    protected String getColumnaId() {
-        return "id_mecanico";
     }
 
     @Override
@@ -29,19 +18,43 @@ public class MecanicoDao extends AbstractDao<Mecanico, Integer> {
                     rs.getString("nombre"),
                     rs.getString("especialidad"),
                     rs.getBigDecimal("tarifa_hora")));
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
             registrar("mapRsToClass mecanico", e);
             return Optional.empty();
         }
     }
 
-    /** Nombre y especialidad obligatorios; la tarifa no puede faltar ni ser negativa. */
+    /** Nombre y especialidad obligatorios y la tarifa no puede faltar (que no sea negativa lo comprueba el CHECK). */
     private boolean esValido(Mecanico mecanico) {
-        return mecanico != null
-                && textoValido(mecanico.getNombre())
-                && textoValido(mecanico.getEspecialidad())
-                && mecanico.getTarifaHora() != null
-                && mecanico.getTarifaHora().compareTo(BigDecimal.ZERO) >= 0;
+        if (mecanico == null) return false;
+        if (mecanico.getNombre() == null || mecanico.getNombre().isBlank()) return false;
+        if (mecanico.getEspecialidad() == null || mecanico.getEspecialidad().isBlank()) return false;
+        if (mecanico.getTarifaHora() == null) return false;
+        return true;
+    }
+
+    public List<Mecanico> listar() {
+        String sql = "SELECT * FROM mecanicos ORDER BY id_mecanico";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            return consultar(ps);
+        } catch (SQLException | RuntimeException e) {
+            registrar("listar mecanicos", e);
+            return List.of();
+        }
+    }
+
+    public Optional<Mecanico> buscarPorId(Integer id) {
+        if (id == null) return Optional.empty();
+        String sql = "SELECT * FROM mecanicos WHERE id_mecanico = ?";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return consultarUno(ps);
+        } catch (SQLException | RuntimeException e) {
+            registrar("buscarPorId mecanico", e);
+            return Optional.empty();
+        }
     }
 
     /** Guarda un mecánico nuevo y devuelve su id (0 si no se pudo). */
@@ -53,8 +66,14 @@ public class MecanicoDao extends AbstractDao<Mecanico, Integer> {
             ps.setString(1, mecanico.getNombre());
             ps.setString(2, mecanico.getEspecialidad());
             ps.setBigDecimal(3, mecanico.getTarifaHora());
-            return insertarConId(ps);
-        } catch (SQLException e) {
+            ps.executeUpdate();
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+                return 0;
+            }
+        } catch (SQLException | RuntimeException e) {
             registrar("insertar mecanico", e);
             return 0;
         }
@@ -70,14 +89,37 @@ public class MecanicoDao extends AbstractDao<Mecanico, Integer> {
             ps.setString(2, mecanico.getEspecialidad());
             ps.setBigDecimal(3, mecanico.getTarifaHora());
             ps.setInt(4, mecanico.getIdMecanico());
-            return ejecutar(ps);
-        } catch (SQLException e) {
+            return ps.executeUpdate();
+        } catch (SQLException | RuntimeException e) {
             registrar("actualizar mecanico", e);
             return 0;
         }
     }
 
+    /** Borra un mecánico. Devuelve 1 si lo borró y 0 si no existía o tiene reparaciones. */
+    public int eliminar(Integer id) {
+        if (id == null) return 0;
+        String sql = "DELETE FROM mecanicos WHERE id_mecanico = ?";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return ps.executeUpdate();
+        } catch (SQLException | RuntimeException e) {
+            registrar("eliminar mecanico", e);
+            return 0;
+        }
+    }
+
     public List<Mecanico> buscarPorEspecialidad(String especialidad) {
-        return buscarPor("especialidad", especialidad);
+        if (especialidad == null || especialidad.isBlank()) return List.of();
+        String sql = "SELECT * FROM mecanicos WHERE especialidad = ? ORDER BY id_mecanico";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, especialidad);
+            return consultar(ps);
+        } catch (SQLException | RuntimeException e) {
+            registrar("buscarPorEspecialidad mecanico", e);
+            return List.of();
+        }
     }
 }

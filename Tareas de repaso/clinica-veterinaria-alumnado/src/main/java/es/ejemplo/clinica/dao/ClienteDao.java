@@ -61,7 +61,9 @@ public final class ClienteDao implements IClienteDao {
     /** Guarda un cliente nuevo y devuelve el id que le pone la base de datos. */
     @Override
     public int insertar(Cliente cliente) {
-        Objects.requireNonNull(cliente, "El cliente no puede ser null");
+        if (cliente == null) {
+            throw new NullPointerException("El cliente no puede ser null");
+        }
         String sql = "INSERT INTO clientes (nombre, email, telefono) VALUES (?, ?, ?)";
         try (Connection con = ConexionBD.abrir(url);
              PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -84,7 +86,9 @@ public final class ClienteDao implements IClienteDao {
     /** Cambia los datos de un cliente que ya existe. Devuelve cuántas filas cambiaron (1 o 0). */
     @Override
     public int actualizar(Cliente cliente) {
-        Objects.requireNonNull(cliente, "El cliente no puede ser null");
+        if (cliente == null) {
+            throw new NullPointerException("El cliente no puede ser null");
+        }
         if (cliente.getId() == null) throw new IllegalArgumentException("Para actualizar hace falta el id");
         String sql = "UPDATE clientes SET nombre = ?, email = ?, telefono = ? WHERE id = ?";
         try (Connection con = ConexionBD.abrir(url);
@@ -102,7 +106,9 @@ public final class ClienteDao implements IClienteDao {
     /** Borra el cliente con ese id. Devuelve cuántas filas se borraron (1 o 0). */
     @Override
     public int eliminar(Integer id) {
-        Objects.requireNonNull(id, "El id no puede ser null");
+        if (id == null) {
+            throw new NullPointerException("El id no puede ser null");
+        }
         String sql = "DELETE FROM clientes WHERE id = ?";
         try (Connection con = ConexionBD.abrir(url);
              PreparedStatement ps = con.prepareStatement(sql)) {

@@ -65,7 +65,9 @@ public final class ConsultaDao implements IConsultaDao {
     /** Guarda una consulta nueva y devuelve el id que le pone la base de datos. */
     @Override
     public int insertar(Consulta consulta) {
-        Objects.requireNonNull(consulta, "La consulta no puede ser null");
+        if (consulta == null) {
+            throw new NullPointerException("La consulta no puede ser null");
+        }
         String sql = "INSERT INTO consultas (id_mascota, id_veterinario, fecha, horas, estado) VALUES (?, ?, ?, ?, ?)";
         try (Connection con = ConexionBD.abrir(url);
              PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -89,7 +91,9 @@ public final class ConsultaDao implements IConsultaDao {
     /** Cambia los datos de una consulta que ya existe. Devuelve cuántas filas cambiaron (1 o 0). */
     @Override
     public int actualizar(Consulta consulta) {
-        Objects.requireNonNull(consulta, "La consulta no puede ser null");
+        if (consulta == null) {
+            throw new NullPointerException("La consulta no puede ser null");
+        }
         if (consulta.getId() == null) throw new IllegalArgumentException("Para actualizar hace falta el id");
         String sql = "UPDATE consultas SET id_mascota = ?, id_veterinario = ?, fecha = ?, horas = ?, estado = ? "
                 + "WHERE id = ?";
@@ -110,7 +114,9 @@ public final class ConsultaDao implements IConsultaDao {
     /** Borra la consulta con ese id. Devuelve cuántas filas se borraron (1 o 0). */
     @Override
     public int eliminar(Integer id) {
-        Objects.requireNonNull(id, "El id no puede ser null");
+        if (id == null) {
+            throw new NullPointerException("El id no puede ser null");
+        }
         String sql = "DELETE FROM consultas WHERE id = ?";
         try (Connection con = ConexionBD.abrir(url);
              PreparedStatement ps = con.prepareStatement(sql)) {

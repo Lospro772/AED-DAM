@@ -64,7 +64,9 @@ public final class TratamientoDao implements ITratamientoDao {
     /** Guarda un tratamiento nuevo y devuelve el id que le pone la base de datos. */
     @Override
     public int insertar(Tratamiento tratamiento) {
-        Objects.requireNonNull(tratamiento, "El tratamiento no puede ser null");
+        if (tratamiento == null) {
+            throw new NullPointerException("El tratamiento no puede ser null");
+        }
         String sql = "INSERT INTO tratamientos (id_consulta, descripcion, cantidad, precio_unitario) VALUES (?, ?, ?, ?)";
         try (Connection con = ConexionBD.abrir(url);
              PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -87,7 +89,9 @@ public final class TratamientoDao implements ITratamientoDao {
     /** Cambia los datos de un tratamiento que ya existe. Devuelve cuántas filas cambiaron (1 o 0). */
     @Override
     public int actualizar(Tratamiento tratamiento) {
-        Objects.requireNonNull(tratamiento, "El tratamiento no puede ser null");
+        if (tratamiento == null) {
+            throw new NullPointerException("El tratamiento no puede ser null");
+        }
         if (tratamiento.getId() == null) throw new IllegalArgumentException("Para actualizar hace falta el id");
         String sql = "UPDATE tratamientos SET id_consulta = ?, descripcion = ?, cantidad = ?, precio_unitario = ? "
                 + "WHERE id = ?";
@@ -107,7 +111,9 @@ public final class TratamientoDao implements ITratamientoDao {
     /** Borra el tratamiento con ese id. Devuelve cuántas filas se borraron (1 o 0). */
     @Override
     public int eliminar(Integer id) {
-        Objects.requireNonNull(id, "El id no puede ser null");
+        if (id == null) {
+            throw new NullPointerException("El id no puede ser null");
+        }
         String sql = "DELETE FROM tratamientos WHERE id = ?";
         try (Connection con = ConexionBD.abrir(url);
              PreparedStatement ps = con.prepareStatement(sql)) {

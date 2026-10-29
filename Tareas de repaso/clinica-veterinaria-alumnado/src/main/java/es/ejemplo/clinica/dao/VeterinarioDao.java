@@ -61,7 +61,9 @@ public final class VeterinarioDao implements IVeterinarioDao {
     /** Guarda un veterinario nuevo y devuelve el id que le pone la base de datos. */
     @Override
     public int insertar(Veterinario veterinario) {
-        Objects.requireNonNull(veterinario, "El veterinario no puede ser null");
+        if (veterinario == null) {
+            throw new NullPointerException("El veterinario no puede ser null");
+        }
         String sql = "INSERT INTO veterinarios (nombre, especialidad, tarifa_hora) VALUES (?, ?, ?)";
         try (Connection con = ConexionBD.abrir(url);
              PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -83,7 +85,9 @@ public final class VeterinarioDao implements IVeterinarioDao {
     /** Cambia los datos de un veterinario que ya existe. Devuelve cuántas filas cambiaron (1 o 0). */
     @Override
     public int actualizar(Veterinario veterinario) {
-        Objects.requireNonNull(veterinario, "El veterinario no puede ser null");
+        if (veterinario == null) {
+            throw new NullPointerException("El veterinario no puede ser null");
+        }
         if (veterinario.getId() == null) throw new IllegalArgumentException("Para actualizar hace falta el id");
         String sql = "UPDATE veterinarios SET nombre = ?, especialidad = ?, tarifa_hora = ? WHERE id = ?";
         try (Connection con = ConexionBD.abrir(url);
@@ -101,7 +105,9 @@ public final class VeterinarioDao implements IVeterinarioDao {
     /** Borra el veterinario con ese id. Devuelve cuántas filas se borraron (1 o 0). */
     @Override
     public int eliminar(Integer id) {
-        Objects.requireNonNull(id, "El id no puede ser null");
+        if (id == null) {
+            throw new NullPointerException("El id no puede ser null");
+        }
         String sql = "DELETE FROM veterinarios WHERE id = ?";
         try (Connection con = ConexionBD.abrir(url);
              PreparedStatement ps = con.prepareStatement(sql)) {

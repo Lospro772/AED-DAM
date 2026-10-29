@@ -6,19 +6,9 @@ import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
 
-public class PiezaReparacionDao extends AbstractDao<PiezaReparacion, Integer> {
+public class PiezaReparacionDao extends AbstractDao<PiezaReparacion> {
     public PiezaReparacionDao(String url) {
         super(url);
-    }
-
-    @Override
-    protected String getTabla() {
-        return "piezas_reparacion";
-    }
-
-    @Override
-    protected String getColumnaId() {
-        return "id_pieza";
     }
 
     @Override
@@ -30,20 +20,43 @@ public class PiezaReparacionDao extends AbstractDao<PiezaReparacion, Integer> {
                     rs.getString("nombre"),
                     rs.getInt("cantidad"),
                     rs.getBigDecimal("precio_unitario")));
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
             registrar("mapRsToClass pieza", e);
             return Optional.empty();
         }
     }
 
-    /** Reparación y nombre obligatorios; cantidad mayor que 0; precio no negativo. */
+    /** Nombre obligatorio; reparación, cantidad y precio no pueden faltar (cantidad > 0 y precio >= 0 lo comprueba el CHECK). */
     private boolean esValido(PiezaReparacion pieza) {
-        return pieza != null
-                && pieza.getIdReparacion() != null
-                && textoValido(pieza.getNombre())
-                && pieza.getCantidad() != null && pieza.getCantidad() > 0
-                && pieza.getPrecioUnitario() != null
-                && pieza.getPrecioUnitario().compareTo(BigDecimal.ZERO) >= 0;
+        if (pieza == null) return false;
+        if (pieza.getNombre() == null || pieza.getNombre().isBlank()) return false;
+        if (pieza.getIdReparacion() == null) return false;
+        if (pieza.getCantidad() == null || pieza.getPrecioUnitario() == null) return false;
+        return true;
+    }
+
+    public List<PiezaReparacion> listar() {
+        String sql = "SELECT * FROM piezas_reparacion ORDER BY id_pieza";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            return consultar(ps);
+        } catch (SQLException | RuntimeException e) {
+            registrar("listar piezas", e);
+            return List.of();
+        }
+    }
+
+    public Optional<PiezaReparacion> buscarPorId(Integer id) {
+        if (id == null) return Optional.empty();
+        String sql = "SELECT * FROM piezas_reparacion WHERE id_pieza = ?";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return consultarUno(ps);
+        } catch (SQLException | RuntimeException e) {
+            registrar("buscarPorId pieza", e);
+            return Optional.empty();
+        }
     }
 
     /** Guarda una pieza nueva y devuelve su id (0 si no se pudo). */
@@ -57,8 +70,14 @@ public class PiezaReparacionDao extends AbstractDao<PiezaReparacion, Integer> {
             ps.setString(2, pieza.getNombre());
             ps.setInt(3, pieza.getCantidad());
             ps.setBigDecimal(4, pieza.getPrecioUnitario());
-            return insertarConId(ps);
-        } catch (SQLException e) {
+            ps.executeUpdate();
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+                return 0;
+            }
+        } catch (SQLException | RuntimeException e) {
             registrar("insertar pieza", e);
             return 0;
         }
@@ -76,15 +95,38 @@ public class PiezaReparacionDao extends AbstractDao<PiezaReparacion, Integer> {
             ps.setInt(3, pieza.getCantidad());
             ps.setBigDecimal(4, pieza.getPrecioUnitario());
             ps.setInt(5, pieza.getIdPieza());
-            return ejecutar(ps);
-        } catch (SQLException e) {
+            return ps.executeUpdate();
+        } catch (SQLException | RuntimeException e) {
             registrar("actualizar pieza", e);
             return 0;
         }
     }
 
+    /** Borra una pieza. Devuelve 1 si la borró y 0 si no existía. */
+    public int eliminar(Integer id) {
+        if (id == null) return 0;
+        String sql = "DELETE FROM piezas_reparacion WHERE id_pieza = ?";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return ps.executeUpdate();
+        } catch (SQLException | RuntimeException e) {
+            registrar("eliminar pieza", e);
+            return 0;
+        }
+    }
+
     public List<PiezaReparacion> listarPorReparacion(Integer idReparacion) {
-        return buscarPor("id_reparacion", idReparacion);
+        if (idReparacion == null) return List.of();
+        String sql = "SELECT * FROM piezas_reparacion WHERE id_reparacion = ? ORDER BY id_pieza";
+        try (Connection con = obtenerConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, idReparacion);
+            return consultar(ps);
+        } catch (SQLException | RuntimeException e) {
+            registrar("listarPorReparacion pieza", e);
+            return List.of();
+        }
     }
 
     /** Lo que cuestan las piezas de una reparación: suma de cantidad × precio. Sin piezas, 0 (nunca null). */
@@ -103,7 +145,7 @@ public class PiezaReparacionDao extends AbstractDao<PiezaReparacion, Integer> {
                 }
                 return BigDecimal.ZERO;
             }
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
             registrar("calcularCostePiezas", e);
             return BigDecimal.ZERO;
         }

@@ -1,7 +1,6 @@
 package es.ejemplo.taller.infra;
 
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.sql.*;
 
@@ -10,8 +9,6 @@ import java.sql.*;
  * No deja ninguna conexión abierta: cada operación abre la suya y la cierra con try-with-resources.
  */
 public class ConexionBD {
-    private static final String PREFIJO_SQLITE = "jdbc:sqlite:";
-
     private final String url;
 
     public ConexionBD(String url) {
@@ -25,18 +22,14 @@ public class ConexionBD {
 
     public static Connection abrir(String url) throws SQLException {
         // 1. La URL tiene que ser de SQLite
-        if (url == null || !url.startsWith(PREFIJO_SQLITE)) {
+        if (url == null || !url.startsWith("jdbc:sqlite:")) {
             throw new SQLException("URL SQLite no válida: " + url);
         }
-        // 2. Comprobar el archivo ANTES de conectar (si no existe, SQLite crearía uno vacío sin avisar)
-        Path rutaArchivo;
-        try {
-            rutaArchivo = Path.of(url.substring(PREFIJO_SQLITE.length()));
-        } catch (InvalidPathException e) {
-            throw new SQLException("Ruta no válida: " + url, e);
-        }
-        if (!Files.exists(rutaArchivo) || !Files.isRegularFile(rutaArchivo) || !Files.isReadable(rutaArchivo)) {
-            throw new SQLException("No existe o no se puede leer la base de datos: " + rutaArchivo);
+        // 2. Comprobar el archivo ANTES de conectar (si no existe, SQLite crearía uno vacío sin avisar).
+        //    isRegularFile da false si no existe o si es una carpeta
+        String ruta = url.substring("jdbc:sqlite:".length());
+        if (!Files.isRegularFile(Path.of(ruta))) {
+            throw new SQLException("No existe la base de datos: " + ruta);
         }
         // 3. Conectar
         Connection con = DriverManager.getConnection(url);
