@@ -1,46 +1,71 @@
 package es.ejemplo.taller.infra;
 
-import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.logging.Logger;
+import java.sql.*;
 
+/**
+ * Única clase que crea las conexiones con la base de datos.
+ * No deja ninguna conexión abierta: cada operación abre la suya y la cierra con try-with-resources.
+ */
 public class ConexionBD {
-    private static final Logger LOG = Logger.getLogger(ConexionBD.class.getName());
+    private static final String PREFIJO_SQLITE = "jdbc:sqlite:";
 
-    public static String normalizarUrl(String url) {
-        if (url == null || !url.startsWith("jdbc:sqlite:")) return url;
-        String archivo = url.substring("jdbc:sqlite:".length());
-        if (archivo.isBlank() || archivo.equals(":memory:") || archivo.startsWith("file:")) return url;
+    private final String url;
+
+    public ConexionBD(String url) {
+        this.url = url;
+    }
+
+    /** Abre una conexión con la url de este objeto. Quien la pide es quien la cierra. */
+    public Connection obtenerConexion() throws SQLException {
+        return abrir(url);
+    }
+
+    public static Connection abrir(String url) throws SQLException {
+        // 1. La URL tiene que ser de SQLite
+        if (url == null || !url.startsWith(PREFIJO_SQLITE)) {
+            throw new SQLException("URL SQLite no válida: " + url);
+        }
+        // 2. Comprobar el archivo ANTES de conectar (si no existe, SQLite crearía uno vacío sin avisar)
+        Path rutaArchivo;
         try {
-            Path ruta = Paths.get(archivo);
-            if (!ruta.isAbsolute()) {
-                // IntelliJ puede arrancar desde la carpeta padre del módulo Maven.
-                Path cwd = Paths.get("").toAbsolutePath().normalize();
-                Path proyecto = cwd;
-                if (!Files.exists(proyecto.resolve("pom.xml")) &&
-                        Files.exists(proyecto.resolve("gestion-java-jdbc-dao/pom.xml"))) {
-                    proyecto = proyecto.resolve("gestion-java-jdbc-dao");
-                }
-                ruta = proyecto.resolve(ruta);
+            rutaArchivo = Path.of(url.substring(PREFIJO_SQLITE.length()));
+        } catch (InvalidPathException e) {
+            throw new SQLException("Ruta no válida: " + url, e);
+        }
+        if (!Files.exists(rutaArchivo) || !Files.isRegularFile(rutaArchivo) || !Files.isReadable(rutaArchivo)) {
+            throw new SQLException("No existe o no se puede leer la base de datos: " + rutaArchivo);
+        }
+        // 3. Conectar
+        Connection con = DriverManager.getConnection(url);
+        try {
+            // 4. Comprobar que es la base de datos del taller y activar las claves foráneas
+            comprobarTablas(con);
+            try (Statement st = con.createStatement()) {
+                st.execute("PRAGMA foreign_keys = ON");
             }
-            ruta = ruta.toAbsolutePath().normalize();
-            Path parent = ruta.getParent();
-            if (parent != null) Files.createDirectories(parent);
-            return "jdbc:sqlite:" + ruta;
-        } catch (IOException | RuntimeException e) {
-            return url;
+            return con;
+        } catch (SQLException e) {
+            con.close(); // si algo falla, no dejamos la conexión abierta
+            throw e;
         }
     }
-    /**
-     * TODO: verificar el archivo antes de conectar y comprobar las tablas.
-     * Devuelve una conexión abierta cuya responsabilidad de cierre tiene el llamador.
-     * Si la ruta, el archivo o el esquema no son válidos, lanza SQLException.
-     */
-    public static Connection abrir(String url) throws SQLException {
-        throw new SQLException("Pendiente de implementar por el alumnado");
+
+    /** Cuenta cuántas de las 5 tablas del taller hay. Si no están las 5, error. */
+    private static void comprobarTablas(Connection con) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' "
+                + "AND name IN ('clientes', 'vehiculos', 'mecanicos', 'reparaciones', 'piezas_reparacion')";
+        try (PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            int tablasEncontradas = 0;
+            if (rs.next()) {
+                tablasEncontradas = rs.getInt(1); // la columna 1 es el COUNT(*)
+            }
+            if (tablasEncontradas != 5) {
+                throw new SQLException("La base de datos no tiene las 5 tablas del taller");
+            }
+        }
     }
 }
