@@ -12,20 +12,41 @@ import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
+/**
+ * Acceso a las reservas de libros. Una reserva puede estar PENDIENTE, ATENDIDA o CANCELADA;
+ * cualquier otro estado se rechaza al validar.
+ */
 public class ReservaDao implements AutoCloseable {
     private static final Logger LOG=Logger.getLogger(ReservaDao.class.getName());
     private final EntityManagerFactory managerFactory;
     private final boolean ownFactory;
     
+    /**
+     * Crea el DAO con su propia factoría a partir de la URL JDBC. Esa factoría se cierra al llamar a
+     * close().
+     *
+     * @param url URL JDBC de la base de datos SQLite
+     */
     public ReservaDao(String url) {managerFactory=OrmFactory.crear(url);ownFactory=true;}
     
+    /**
+     * Usa una factoría que ya existe y que comparten varios DAO. En este caso close() no la cierra,
+     * eso lo hace quien la creó.
+     *
+     * @param factory factoría de EntityManager compartida
+     */
     public ReservaDao(EntityManagerFactory factory) {managerFactory=factory;ownFactory=false;}
     private void registrar(String metodo,Exception ex) {LOG.log(Level.WARNING,metodo+" no se pudo completar: "+ex.getMessage());}
     
+    /**
+     * Devuelve todas las reservas registradas.
+     *
+     * @return lista de reservas, vacía si falla la consulta
+     */
     public List<Reserva> listar() {
         try (var em = managerFactory.createEntityManager()) {
             return em.createQuery(
-                            "select l from ReservaEntity l order by l.titulo, l.idLibro",
+                            "select r from ReservaEntity r order by r.fechaReserva, r.idReserva",
                             ReservaEntity.class)
                     .getResultStream()
                     .map(ReservaMapper::toDomain)
@@ -36,6 +57,12 @@ public class ReservaDao implements AutoCloseable {
         }
     }
     
+    /**
+     * Obtiene una reserva a partir de su id.
+     *
+     * @param id identificador de la reserva
+     * @return la reserva o un Optional vacío
+     */
     public Optional<Reserva> buscarPorId(Integer id) {
         try (var em = managerFactory.createEntityManager()) {
             return Optional.ofNullable(em.find(ReservaEntity.class, id))
@@ -46,6 +73,12 @@ public class ReservaDao implements AutoCloseable {
         }
     }
     
+    /**
+     * Crea una reserva nueva de un socio sobre un libro.
+     *
+     * @param reserva reserva que se va a guardar
+     * @return id generado, o 0 si no se pudo crear
+     */
     public int insertar(Reserva reserva) {
         if (reserva == null) {
             return 0;
@@ -67,6 +100,12 @@ public class ReservaDao implements AutoCloseable {
         }
     }
     
+    /**
+     * Actualiza una reserva existente, normalmente para cambiarle el estado.
+     *
+     * @param reserva reserva con los datos nuevos
+     * @return 1 si se actualizó, 0 si no existe
+     */
     public int actualizar(Reserva reserva) {
         try (var em = managerFactory.createEntityManager()) {
             var tx = em.getTransaction();
@@ -91,6 +130,12 @@ public class ReservaDao implements AutoCloseable {
         }
     }
     
+    /**
+     * Borra una reserva a partir de su identificador.
+     *
+     * @param id identificador de la reserva
+     * @return 1 si se borró, 0 si no
+     */
     public int eliminar(Integer id) {
         try (var em = managerFactory.createEntityManager()) {
             var tx = em.getTransaction();
@@ -112,37 +157,137 @@ public class ReservaDao implements AutoCloseable {
     }
     private boolean validar(Reserva dato) {return dato != null && dato.getIdSocio()!=null && dato.getIdLibro()!=null && dato.getFechaReserva()!=null && dato.getEstado()!=null && (dato.getEstado().equals("PENDIENTE") || dato.getEstado().equals("ATENDIDA") || dato.getEstado().equals("CANCELADA"));}
     
+    /**
+     * Reservas que todavía están en estado PENDIENTE.
+     *
+     * @return reservas pendientes
+     */
     public List<Reserva> listarPendientes() {
-        // TODO: implementar con EntityManager, JPQL y rollback cuando proceda.
-        return List.of();
+        try (var em = managerFactory.createEntityManager()) {
+            return em.createQuery(
+                            "select r from ReservaEntity r where r.estado = 'PENDIENTE' "
+                                    + "order by r.fechaReserva, r.idReserva",
+                            ReservaEntity.class)
+                    .getResultStream()
+                    .map(ReservaMapper::toDomain)
+                    .toList();
+        } catch (Exception ex) {
+            registrar("listarPendientes", ex);
+            return List.of();
+        }
     }
     
+    /**
+     * Todas las reservas que ha hecho un socio.
+     *
+     * @param idSocio id del socio
+     * @return reservas del socio
+     */
     public List<Reserva> buscarPorSocio(int idSocio) {
-        // TODO: implementar con EntityManager, JPQL y rollback cuando proceda.
-        return List.of();
+        try (var em = managerFactory.createEntityManager()) {
+            return em.createQuery(
+                            "select r from ReservaEntity r where r.idSocio = :idSocio "
+                                    + "order by r.fechaReserva, r.idReserva",
+                            ReservaEntity.class)
+                    .setParameter("idSocio", idSocio)
+                    .getResultStream()
+                    .map(ReservaMapper::toDomain)
+                    .toList();
+        } catch (Exception ex) {
+            registrar("buscarPorSocio", ex);
+            return List.of();
+        }
     }
     
+    /**
+     * Reservas hechas sobre un libro concreto.
+     *
+     * @param idLibro id del libro
+     * @return reservas de ese libro
+     */
     public List<Reserva> listarPorLibro(int idLibro) {
-        // TODO: implementar con EntityManager, JPQL y rollback cuando proceda.
-        return List.of();
+        try (var em = managerFactory.createEntityManager()) {
+            return em.createQuery(
+                            "select r from ReservaEntity r where r.idLibro = :idLibro "
+                                    + "order by r.fechaReserva, r.idReserva",
+                            ReservaEntity.class)
+                    .setParameter("idLibro", idLibro)
+                    .getResultStream()
+                    .map(ReservaMapper::toDomain)
+                    .toList();
+        } catch (Exception ex) {
+            registrar("listarPorLibro", ex);
+            return List.of();
+        }
     }
     
+    /**
+     * Cuántas reservas quedan por atender en total.
+     *
+     * @return número de reservas pendientes
+     */
     public long contarReservasPendientes() {
-        // TODO: implementar con EntityManager, JPQL y rollback cuando proceda.
-        return 0;
+        try (var em = managerFactory.createEntityManager()) {
+            return em.createQuery(
+                            "select count(r) from ReservaEntity r where r.estado = 'PENDIENTE'",
+                            Long.class)
+                    .getSingleResult();
+        } catch (Exception ex) {
+            registrar("contarReservasPendientes", ex);
+            return 0;
+        }
     }
     
+    /**
+     * Reservas pendientes con el nombre del socio, el título del libro y su autor (consulta 10).
+     *
+     * @return una fila por reserva
+     */
     public List<Object[]> reservasConDetalles() {
-        // TODO: implementar con EntityManager, JPQL y rollback cuando proceda.
-        return List.of();
+        try (var em = managerFactory.createEntityManager()) {
+            return em.createQuery(
+                            "select r.idReserva, s.nombre, l.titulo, a.nombre, r.fechaReserva "
+                                    + "from ReservaEntity r join r.socio s join r.libro l join l.autor a "
+                                    + "where r.estado = 'PENDIENTE' "
+                                    + "order by r.fechaReserva, r.idReserva",
+                            Object[].class)
+                    .getResultList();
+        } catch (Exception ex) {
+            registrar("reservasConDetalles", ex);
+            return List.of();
+        }
     }
     
+    /**
+     * Para cada libro, la reserva pendiente más antigua, que es la primera que se atiende (consulta
+     * 23).
+     *
+     * @return una fila por libro con su reserva prioritaria
+     */
     public List<Object[]> prioridadReservas() {
-        // TODO: implementar con EntityManager, JPQL y rollback cuando proceda.
-        return List.of();
+        try (var em = managerFactory.createEntityManager()) {
+            return em.createQuery(
+                            "select l.titulo, r.idReserva, s.nombre, r.fechaReserva "
+                                    + "from ReservaEntity r join r.libro l join r.socio s "
+                                    + "where r.estado = 'PENDIENTE' and r.idReserva = ("
+                                    + "  select min(r2.idReserva) from ReservaEntity r2 "
+                                    + "  where r2.idLibro = r.idLibro and r2.estado = 'PENDIENTE' "
+                                    + "  and r2.fechaReserva = (select min(r3.fechaReserva) from ReservaEntity r3 "
+                                    + "    where r3.idLibro = r.idLibro and r3.estado = 'PENDIENTE')) "
+                                    + "order by r.fechaReserva, l.titulo",
+                            Object[].class)
+                    .getResultList();
+        } catch (Exception ex) {
+            registrar("prioridadReservas", ex);
+            return List.of();
+        }
     }
 
 
     
-    @Override public void close() {if(ownFactory && managerFactory.isOpen())managerFactory.close();}
+    @Override
+    /**
+     * Cierra la factoría solo si la creó este DAO. Si es compartida se deja abierta.
+     */
+    public void close() {if(ownFactory && managerFactory.isOpen())managerFactory.close();}
 }
