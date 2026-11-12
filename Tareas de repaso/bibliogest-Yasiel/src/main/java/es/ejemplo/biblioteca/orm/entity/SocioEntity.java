@@ -28,28 +28,52 @@ public class SocioEntity {
     private Boolean activo;
     
     public SocioEntity() {}
-    
-    public Integer getIdSocio() { return idSocio; }
-    
-    public void setIdSocio(Integer valor) { this.idSocio = valor; }
-    
-    public String getNombre() { return nombre; }
-    
-    public void setNombre(String valor) { this.nombre = valor; }
-    
-    public String getEmail() { return email; }
-    
-    public void setEmail(String valor) { this.email = valor; }
-    
-    public String getTelefono() { return telefono; }
-    
-    public void setTelefono(String valor) { this.telefono = valor; }
-    
-    public String getFechaAlta() { return fechaAlta; }
-    
-    public void setFechaAlta(String valor) { this.fechaAlta = valor; }
-    
-    public Boolean getActivo() { return activo; }
-    
-    public void setActivo(Boolean valor) { this.activo = valor; }
+
+    public Integer getIdSocio() {
+        return idSocio;
+    }
+
+    public void setIdSocio(Integer idSocio) {
+        this.idSocio = idSocio;
+    }
+
+    public String getNombre() {
+        return nombre;
+    }
+
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getTelefono() {
+        return telefono;
+    }
+
+    public void setTelefono(String telefono) {
+        this.telefono = telefono;
+    }
+
+    public String getFechaAlta() {
+        return fechaAlta;
+    }
+
+    public void setFechaAlta(String fechaAlta) {
+        this.fechaAlta = fechaAlta;
+    }
+
+    public Boolean getActivo() {
+        return activo;
+    }
+
+    public void setActivo(Boolean activo) {
+        this.activo = activo;
+    }
 }
