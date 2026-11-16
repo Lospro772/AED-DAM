@@ -12,16 +12,31 @@ import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
+/**
+ * DAO de socios: altas, bajas, búsquedas y los informes que tienen que ver con sus préstamos.
+ */
 public class SocioDao implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(SocioDao.class.getName());
     private final EntityManagerFactory managerFactory;
     private final boolean ownFactory;
 
+    /**
+     * Crea el DAO con su propia factoría a partir de la URL JDBC. Esa factoría se cierra al llamar a
+     * close().
+     *
+     * @param url URL JDBC de la base de datos SQLite
+     */
     public SocioDao(String url) {
         managerFactory = OrmFactory.crear(url);
         ownFactory = true;
     }
 
+    /**
+     * Usa una factoría que ya existe y que comparten varios DAO. En este caso close() no la cierra,
+     * eso lo hace quien la creó.
+     *
+     * @param factory factoría de EntityManager compartida
+     */
     public SocioDao(EntityManagerFactory factory) {
         managerFactory = factory;
         ownFactory = false;
@@ -31,6 +46,11 @@ public class SocioDao implements AutoCloseable {
         LOG.log(Level.WARNING, metodo + " no se pudo completar: " + ex.getMessage());
     }
 
+    /**
+     * Lista todos los socios de la biblioteca.
+     *
+     * @return lista de socios, vacía si falla la consulta
+     */
     public List<Socio> listar() {
         try (var em = managerFactory.createEntityManager()) {
             return em.createQuery(
@@ -45,6 +65,12 @@ public class SocioDao implements AutoCloseable {
         }
     }
 
+    /**
+     * Busca un socio por su número de socio.
+     *
+     * @param id identificador del socio
+     * @return el socio si existe; si no, un Optional vacío
+     */
     public Optional<Socio> buscarPorId(Integer id) {
         try (var em = managerFactory.createEntityManager()) {
             return Optional.ofNullable(em.find(SocioEntity.class, id))
@@ -55,6 +81,12 @@ public class SocioDao implements AutoCloseable {
         }
     }
 
+    /**
+     * Da de alta un socio nuevo. El email no se puede repetir.
+     *
+     * @param socio datos del socio, sin id
+     * @return id generado, o 0 si no se pudo dar de alta
+     */
     public int insertar(Socio socio) {
         if (socio == null) {
             return 0;
@@ -76,6 +108,12 @@ public class SocioDao implements AutoCloseable {
         }
     }
 
+    /**
+     * Guarda los cambios de un socio que ya existe: nombre, email, teléfono o estado.
+     *
+     * @param socio socio con los datos modificados
+     * @return 1 si se actualizó, 0 si no existe o hubo un error
+     */
     public int actualizar(Socio socio) {
         try (var em = managerFactory.createEntityManager()) {
             var tx = em.getTransaction();
@@ -99,6 +137,12 @@ public class SocioDao implements AutoCloseable {
         }
     }
 
+    /**
+     * Elimina un socio. Si tiene préstamos o reservas no se puede borrar y se devuelve 0.
+     *
+     * @param id identificador del socio
+     * @return 1 si se borró, 0 si no
+     */
     public int eliminar(Integer id) {
         try (var em = managerFactory.createEntityManager()) {
             var tx = em.getTransaction();
@@ -123,6 +167,11 @@ public class SocioDao implements AutoCloseable {
         return dato != null && dato.getNombre() != null && !dato.getNombre().isBlank() && dato.getEmail() != null && !dato.getEmail().isBlank() && dato.getFechaAlta() != null && dato.getActivo() != null;
     }
 
+    /**
+     * Socios activos, empezando por los que se dieron de alta más tarde (consulta 2).
+     *
+     * @return socios activos
+     */
     public List<Socio> listarActivos() {
         try (var em = managerFactory.createEntityManager()) {
             //var tx = em.getTransaction();
@@ -142,6 +191,12 @@ public class SocioDao implements AutoCloseable {
         }
     }
 
+    /**
+     * Busca un socio por su email, que es único.
+     *
+     * @param email email del socio
+     * @return el socio o un Optional vacío
+     */
     public Optional<Socio> buscarPorEmail(String email) {
         try (var em = managerFactory.createEntityManager()) {
             return em.createQuery(
@@ -154,21 +209,54 @@ public class SocioDao implements AutoCloseable {
         }
     }
 
+    /**
+     * Socios que tienen algún préstamo vencido en la fecha indicada (consulta 17).
+     *
+     * @param fecha fecha de referencia, yyyy-MM-dd
+     * @return socios con préstamos vencidos
+     */
     public List<Socio> listarConPrestamosVencidos(String fecha) {
         // TODO: implementar con EntityManager, JPQL y rollback cuando proceda.
         return List.of();
     }
 
+    /**
+     * Socios que nunca han pedido ningún libro prestado (consulta 9).
+     *
+     * @return socios sin préstamos
+     */
     public List<Socio> sociosSinPrestamos() {
-        // TODO: implementar con EntityManager, JPQL y rollback cuando proceda.
-        return List.of();
+        try (var em = managerFactory.createEntityManager()) {
+            return em.createQuery(
+                            "select s from SocioEntity s where (select count(p) from PrestamoEntity p "
+                            + "where p.idSocio = s.idSocio) = 0 order by s.nombre",
+                            SocioEntity.class)
+                    .getResultStream()
+                    .map(SocioMapper::toDomain)
+                    .toList();
+        } catch (RuntimeException ex) {
+            registrar("sociosSinPrestamos", ex);
+            return List.of();
+        }
     }
 
+    /**
+     * Socios con más préstamos, de mayor a menor (consulta 13).
+     *
+     * @param limite número de socios del ranking
+     * @return filas con el socio y su número de préstamos
+     */
     public List<Object[]> rankingSocios(int limite) {
         // TODO: implementar con EntityManager, JPQL y rollback cuando proceda.
         return List.of();
     }
 
+    /**
+     * Historial completo de préstamos de un socio, indicando si se devolvió y si hubo retraso (consulta 22).
+     *
+     * @param idSocio id del socio
+     * @return una fila por préstamo
+     */
     public List<Object[]> historialSocio(int idSocio) {
         // TODO: implementar con EntityManager, JPQL y rollback cuando proceda.
         return List.of();
@@ -176,6 +264,9 @@ public class SocioDao implements AutoCloseable {
 
 
     @Override
+    /**
+     * Cierra la factoría solo si la creó este DAO. Si es compartida se deja abierta.
+     */
     public void close() {
         if (ownFactory && managerFactory.isOpen()) managerFactory.close();
     }
