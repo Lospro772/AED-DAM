@@ -1,6 +1,6 @@
 package aula.tareas.repository;
 
-import aula.tareas.modelo.Tarea;
+import aula.tareas.api.TareaRequest;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -28,7 +28,7 @@ public class TareaRepositoryCsv implements ITareaRepository{
     }
 
     @Override
-    public Tarea create(String titulo) {
+    public TareaRequest create(String titulo) {
         return null;
     }
 
@@ -38,16 +38,16 @@ public class TareaRepositoryCsv implements ITareaRepository{
     }
 
     @Override
-    public List<Tarea> findAll() {
+    public List<TareaRequest> findAll() {
         if (Files.notExists(path)) {
             return new ArrayList<>();
         }
         try {
-            List<Tarea> result = new ArrayList<>();
+            List<TareaRequest> result = new ArrayList<>();
             try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8);
                  CSVParser parser = inputFormat.parse(reader)) {
                 for (CSVRecord row : parser) {
-                    result.add(new Tarea(
+                    result.add(new TareaRequest(
                             Long.parseLong(row.get("id")),
                             row.get("titulo")));
                 }
@@ -60,12 +60,12 @@ public class TareaRepositoryCsv implements ITareaRepository{
     }
 
     @Override
-    public Tarea findById(long identificador) {
+    public TareaRequest findById(long identificador) {
         return null;
     }
 
     @Override
-    public Tarea update(Tarea tarea) {
+    public TareaRequest update(TareaRequest tareaRequest) {
         return null;
     }
 }

@@ -1,7 +1,6 @@
 package aula.tareas.service;
 
-import aula.tareas.modelo.Tarea;
-import jakarta.validation.constraints.NotBlank;
+import aula.tareas.api.TareaRequest;
 
 import java.util.List;
 
@@ -10,19 +9,19 @@ public interface ITareaService {
      * Lista todas las tareas
      * @return
      */
-    public List<Tarea> listar();
+    public List<TareaRequest> listar();
 
     /**
      * Busca toda las tareas
      * @param id
      * @return
      */
-    public Tarea buscar(Long id);
+    public TareaRequest buscar(Long id);
 
     /**
      * Crea las tareas
      * @param titulo
      * @return
      */
-    public Tarea crear(String titulo);
+    public TareaRequest crear(String titulo);
 }
