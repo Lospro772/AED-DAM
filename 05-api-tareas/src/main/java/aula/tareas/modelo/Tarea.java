@@ -2,20 +2,20 @@ package aula.tareas.modelo;
 
 public class Tarea {
 
-    private long id;
+    private long identificador;
     private String titulo;
 
     public Tarea(long id, String titulo) {
-        this.id = id;
+        this.identificador = id;
         this.titulo = titulo;
     }
 
-    public long getId() {
-        return id;
+    public long getIdentificador() {
+        return identificador;
     }
 
-    public void setId(long id) {
-        this.id = id;
+    public void setIdentificador(long identificador) {
+        this.identificador = identificador;
     }
 
     public String getTitulo() {
